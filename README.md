@@ -1,0 +1,2 @@
+# pgm_waypoint_editor
+pgmマップ上の点を指定し，waypointのyamlファイルを作成するためのwebアプリケーション
