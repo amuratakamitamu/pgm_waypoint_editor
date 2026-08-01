@@ -1,13 +1,14 @@
 "use client";
 
-import { ChangeEvent, PointerEvent, useEffect, useRef, useState } from "react";
-import { Download, FileImage, FileUp, MapPin, RotateCcw, Trash2, Upload } from "lucide-react";
+import { ChangeEvent, PointerEvent, WheelEvent, useEffect, useRef, useState } from "react";
+import { Download, FileImage, FileUp, Hand, MapPin, RotateCcw, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 type MapInfo = { resolution: number; originX: number; originY: number; originYaw: number };
 type Waypoint = { id: number; name: string; x: number; y: number; yaw: number };
+type Viewport = { zoom: number; offsetX: number; offsetY: number };
 const defaultMap: MapInfo = { resolution: 0.05, originX: 0, originY: 0, originYaw: 0 };
 
 function readToken(bytes: Uint8Array, index: number) {
@@ -49,13 +50,14 @@ export default function Home() {
   const [mapName, setMapName] = useState<string>("");
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [viewport, setViewport] = useState<Viewport>({ zoom: 1, offsetX: 0, offsetY: 0 });
   const [message, setMessage] = useState("PGM と map YAML を読み込んで始めましょう");
-  const canvasRef = useRef<HTMLCanvasElement>(null); const drawingRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null); const drawingRef = useRef(false); const panningRef = useRef<{ x: number; y: number; viewport: Viewport } | null>(null);
 
   const draw = () => {
     const view = canvasRef.current; if (!view) return;
     const ctx = view.getContext("2d")!; const w = view.width; const h = view.height;
-    ctx.clearRect(0, 0, w, h); if (mapCanvas) ctx.drawImage(mapCanvas, 0, 0, w, h);
+    ctx.clearRect(0, 0, w, h); ctx.save(); ctx.translate(viewport.offsetX, viewport.offsetY); ctx.scale(viewport.zoom, viewport.zoom); if (mapCanvas) ctx.drawImage(mapCanvas, 0, 0, w, h);
     waypoints.forEach((point, index) => {
       const localX = Math.cos(-mapInfo.originYaw) * (point.x - mapInfo.originX) - Math.sin(-mapInfo.originYaw) * (point.y - mapInfo.originY);
       const localY = Math.sin(-mapInfo.originYaw) * (point.x - mapInfo.originX) + Math.cos(-mapInfo.originYaw) * (point.y - mapInfo.originY);
@@ -65,13 +67,14 @@ export default function Home() {
       ctx.beginPath(); ctx.arc(px, py, Math.max(6, w / 90), 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(angle) * w / 18, py + Math.sin(angle) * w / 18); ctx.stroke();
       ctx.fillStyle = "white"; ctx.font = `bold ${Math.max(10, w / 55)}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(index + 1), px, py + 1);
-    });
+    }); ctx.restore();
   };
-  useEffect(draw, [mapCanvas, mapInfo, waypoints, selected]);
+  useEffect(draw, [mapCanvas, mapInfo, waypoints, selected, viewport]);
+  useEffect(() => { setViewport({ zoom: 1, offsetX: 0, offsetY: 0 }); }, [mapCanvas]);
 
   const handlePgm = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const decoded = await parsePgm(file); setMapCanvas(decoded); setMapName(file.name); setMessage(`${file.name} を読み込みました。地図上をドラッグして配置できます。`); }
+    try { const decoded = await parsePgm(file); setMapCanvas(decoded); setMapName(file.name); setMessage(`${file.name} を読み込みました。ホイールで拡大・縮小できます。`); }
     catch (error) { setMessage(error instanceof Error ? error.message : "PGM の読み込みに失敗しました。"); }
   };
   const handleYaml = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -81,18 +84,29 @@ export default function Home() {
   };
   const pointFromEvent = (event: PointerEvent<HTMLCanvasElement>) => {
     const canvas = event.currentTarget; const bounds = canvas.getBoundingClientRect(); const px = (event.clientX - bounds.left) * canvas.width / bounds.width; const py = (event.clientY - bounds.top) * canvas.height / bounds.height;
-    const lx = px * mapInfo.resolution; const ly = (canvas.height - py) * mapInfo.resolution;
+    const imageX = (px - viewport.offsetX) / viewport.zoom; const imageY = (py - viewport.offsetY) / viewport.zoom;
+    const lx = imageX * mapInfo.resolution; const ly = (canvas.height - imageY) * mapInfo.resolution;
     return { x: mapInfo.originX + Math.cos(mapInfo.originYaw) * lx - Math.sin(mapInfo.originYaw) * ly, y: mapInfo.originY + Math.sin(mapInfo.originYaw) * lx + Math.cos(mapInfo.originYaw) * ly, px, py };
   };
   const selectedWaypoint = waypoints.find((point) => point.id === selected) ?? null;
   const updateWaypoint = (id: number, patch: Partial<Waypoint>) => setWaypoints((points) => points.map((point) => point.id === id ? { ...point, ...patch } : point));
   const startPoint = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!mapCanvas) return; event.currentTarget.setPointerCapture(event.pointerId); const p = pointFromEvent(event); const id = Date.now(); drawingRef.current = true; setSelected(id); setWaypoints((points) => [...points, { id, name: `waypoint_${points.length}`, x: p.x, y: p.y, yaw: mapInfo.originYaw }]);
+    if (!mapCanvas) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.button === 1 || event.button === 2) { panningRef.current = { x: event.clientX, y: event.clientY, viewport }; return; }
+    if (event.button !== 0) return;
+    const p = pointFromEvent(event); const id = Date.now(); drawingRef.current = true; setSelected(id); setWaypoints((points) => [...points, { id, name: `waypoint_${points.length}`, x: p.x, y: p.y, yaw: mapInfo.originYaw }]);
   };
   const turnPoint = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (panningRef.current) { const pan = panningRef.current; const canvas = event.currentTarget; const bounds = canvas.getBoundingClientRect(); setViewport({ ...pan.viewport, offsetX: pan.viewport.offsetX + (event.clientX - pan.x) * canvas.width / bounds.width, offsetY: pan.viewport.offsetY + (event.clientY - pan.y) * canvas.height / bounds.height }); return; }
     if (!drawingRef.current || selected === null) return; const p = pointFromEvent(event);
     setWaypoints((points) => points.map((item) => item.id === selected ? { ...item, yaw: Math.atan2(p.y - item.y, p.x - item.x) } : item));
   };
+  const zoomAt = (factor: number, canvas?: HTMLCanvasElement, clientX?: number, clientY?: number) => {
+    const target = canvas ?? canvasRef.current; if (!target) return; const bounds = target.getBoundingClientRect(); const px = clientX === undefined ? target.width / 2 : (clientX - bounds.left) * target.width / bounds.width; const py = clientY === undefined ? target.height / 2 : (clientY - bounds.top) * target.height / bounds.height;
+    setViewport((current) => { const zoom = Math.min(6, Math.max(0.25, current.zoom * factor)); const scale = zoom / current.zoom; return { zoom, offsetX: px - (px - current.offsetX) * scale, offsetY: py - (py - current.offsetY) * scale }; });
+  };
+  const handleWheel = (event: WheelEvent<HTMLCanvasElement>) => { event.preventDefault(); zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.currentTarget, event.clientX, event.clientY); };
   const exportYaml = () => {
     const content = ["frame_id: map", "waypoints:", ...waypoints.flatMap((p) => {
       const z = Math.sin(p.yaw / 2); const w = Math.cos(p.yaw / 2);
@@ -101,13 +115,12 @@ export default function Home() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([content], { type: "application/x-yaml" })); link.download = "waypoints.yaml"; link.click(); URL.revokeObjectURL(link.href);
   };
   const aspect = mapCanvas ? `${mapCanvas.width} / ${mapCanvas.height}` : "16 / 10";
-  return <main className="min-h-screen bg-slate-50"><header className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-white"><MapPin size={19} /></div><div><h1 className="text-base font-semibold">Waypoint Studio</h1><p className="text-xs text-slate-500">PGM Map Editor</p></div></div><Badge>{waypoints.length} waypoints</Badge></div></header>
-    <div className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-      <aside className="space-y-4"><Card className="p-4"><h2 className="text-sm font-semibold">Map files</h2><p className="mt-1 text-xs leading-5 text-slate-500">PGM と対応する map YAML を読み込みます。</p><label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><FileImage size={18} className="text-slate-500"/><span className="min-w-0 flex-1 truncate text-sm">{mapName || "PGM ファイルを選択"}</span><input className="hidden" type="file" accept=".pgm,image/x-portable-graymap" onChange={handlePgm}/><Upload size={16}/></label><label className="mt-2 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><FileUp size={18} className="text-slate-500"/><span className="flex-1 text-sm">map YAML を選択</span><input className="hidden" type="file" accept=".yaml,.yml,text/yaml" onChange={handleYaml}/><Upload size={16}/></label></Card>
+  return <main className="flex h-screen flex-col overflow-hidden bg-slate-50"><header className="shrink-0 border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-white"><MapPin size={19} /></div><div><h1 className="text-base font-semibold">Waypoint Studio</h1><p className="text-xs text-slate-500">PGM Map Editor</p></div></div><Badge>{waypoints.length} waypoints</Badge></div></header>
+    <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-[260px_minmax(0,1fr)_340px] gap-5 overflow-hidden px-5 py-5">
+      <aside className="min-h-0 space-y-4 overflow-y-auto pr-1"><Card className="p-4"><h2 className="text-sm font-semibold">Map files</h2><p className="mt-1 text-xs leading-5 text-slate-500">PGM と対応する map YAML を読み込みます。</p><label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><FileImage size={18} className="text-slate-500"/><span className="min-w-0 flex-1 truncate text-sm">{mapName || "PGM ファイルを選択"}</span><input className="hidden" type="file" accept=".pgm,image/x-portable-graymap" onChange={handlePgm}/><Upload size={16}/></label><label className="mt-2 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><FileUp size={18} className="text-slate-500"/><span className="flex-1 text-sm">map YAML を選択</span><input className="hidden" type="file" accept=".yaml,.yml,text/yaml" onChange={handleYaml}/><Upload size={16}/></label></Card>
         <Card className="p-4"><h2 className="text-sm font-semibold">Map parameters</h2><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span className="text-slate-500">Resolution</span><span>{mapInfo.resolution} m/px</span></div><div className="flex justify-between"><span className="text-slate-500">Origin</span><span>{mapInfo.originX}, {mapInfo.originY}</span></div><div className="flex justify-between"><span className="text-slate-500">Yaw</span><span>{degree(mapInfo.originYaw)}°</span></div></div></Card>
         <Card className="p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Waypoint editor</h2>{selectedWaypoint && <Badge className="bg-orange-100 text-orange-700">選択中</Badge>}</div>{selectedWaypoint ? <div className="mt-4 space-y-3"><label className="block text-xs font-medium text-slate-500">Name<input value={selectedWaypoint.name} onChange={(e) => updateWaypoint(selectedWaypoint.id, { name: e.target.value })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-slate-500"/></label><div className="grid grid-cols-2 gap-2"><label className="block text-xs font-medium text-slate-500">X (m)<input type="number" step="0.001" value={selectedWaypoint.x} onChange={(e) => updateWaypoint(selectedWaypoint.id, { x: Number(e.target.value) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-slate-500"/></label><label className="block text-xs font-medium text-slate-500">Y (m)<input type="number" step="0.001" value={selectedWaypoint.y} onChange={(e) => updateWaypoint(selectedWaypoint.id, { y: Number(e.target.value) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-slate-500"/></label></div><label className="block text-xs font-medium text-slate-500">Angle (°)<input type="number" step="1" value={degree(selectedWaypoint.yaw)} onChange={(e) => updateWaypoint(selectedWaypoint.id, { yaw: Number(e.target.value) * Math.PI / 180 })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-slate-500"/></label><Button variant="destructive" className="w-full" onClick={() => { setWaypoints((points) => points.filter((point) => point.id !== selectedWaypoint.id)); setSelected(null); }}><Trash2 size={15}/> この waypoint を削除</Button></div> : <p className="mt-3 text-xs leading-5 text-slate-500">一覧の行を選択するか、地図上に waypoint を配置してください。</p>}</Card></aside>
-      <section className="min-w-0 space-y-4"><Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold">Map preview</h2><p className="text-xs text-slate-500">{message}</p></div><div className="flex gap-2"><Button variant="outline" size="icon" title="すべて削除" onClick={() => { setWaypoints([]); setSelected(null); }} disabled={!waypoints.length}><RotateCcw size={16}/></Button><Button onClick={exportYaml} disabled={!waypoints.length}><Download size={16}/> YAML をダウンロード</Button></div></div><div className="bg-slate-100 p-4"><div className="relative mx-auto max-h-[65vh] max-w-full overflow-hidden rounded-lg bg-slate-200" style={{ aspectRatio: aspect, width: mapCanvas ? "min(100%, 960px)" : "100%" }}><canvas ref={canvasRef} width={mapCanvas?.width ?? 960} height={mapCanvas?.height ?? 600} onPointerDown={startPoint} onPointerMove={turnPoint} onPointerUp={() => { drawingRef.current = false; }} className="absolute inset-0 h-full w-full cursor-crosshair" />{!mapCanvas && <div className="absolute inset-0 grid place-items-center text-center"><div><FileImage className="mx-auto mb-3 text-slate-400" size={30}/><p className="text-sm font-medium text-slate-600">PGM map をアップロード</p><p className="mt-1 text-xs text-slate-500">P2 / P5 形式に対応しています</p></div></div>}</div></div></Card>
-        <Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Waypoints</h2><span className="text-xs text-slate-500">map frame</span></div>{waypoints.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-2 font-medium">Name</th><th className="px-4 py-2 font-medium">X</th><th className="px-4 py-2 font-medium">Y</th><th className="px-4 py-2 font-medium">Angle</th><th className="w-12"/></tr></thead><tbody>{waypoints.map((p) => <tr key={p.id} onClick={() => setSelected(p.id)} className={`cursor-pointer border-t border-slate-100 ${selected === p.id ? "bg-orange-50" : "hover:bg-slate-50"}`}><td className="px-4 py-3 font-medium">{p.name || "waypoint"}</td><td className="px-4 py-3 font-mono text-xs">{fixed(p.x)}</td><td className="px-4 py-3 font-mono text-xs">{fixed(p.y)}</td><td className="px-4 py-3">{degree(p.yaw)}°</td><td><Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setWaypoints((items) => items.filter((item) => item.id !== p.id)); if (selected === p.id) setSelected(null); }}><Trash2 size={16}/></Button></td></tr>)}</tbody></table></div> : <p className="px-4 py-8 text-center text-sm text-slate-400">まだ waypoint がありません</p>}</Card>
-      </section>
+      <section className="min-w-0 min-h-0"><Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold">Map preview</h2><p className="text-xs text-slate-500">{message}</p></div><div className="flex gap-2"><Button variant="outline" size="icon" title="縮小" onClick={() => zoomAt(1 / 1.25)} disabled={!mapCanvas}><ZoomOut size={16}/></Button><Button variant="outline" size="icon" title="拡大" onClick={() => zoomAt(1.25)} disabled={!mapCanvas}><ZoomIn size={16}/></Button><Button variant="outline" size="icon" title="表示をリセット" onClick={() => setViewport({ zoom: 1, offsetX: 0, offsetY: 0 })} disabled={!mapCanvas}><Hand size={16}/></Button><Button variant="outline" size="icon" title="すべて削除" onClick={() => { setWaypoints([]); setSelected(null); }} disabled={!waypoints.length}><RotateCcw size={16}/></Button><Button onClick={exportYaml} disabled={!waypoints.length}><Download size={16}/> YAML をダウンロード</Button></div></div><div className="bg-slate-100 p-4"><div className="relative mx-auto max-h-[65vh] max-w-full overflow-hidden rounded-lg bg-slate-200" style={{ aspectRatio: aspect, width: mapCanvas ? "min(100%, 960px)" : "100%" }}><canvas ref={canvasRef} width={mapCanvas?.width ?? 960} height={mapCanvas?.height ?? 600} onPointerDown={startPoint} onPointerMove={turnPoint} onPointerUp={() => { drawingRef.current = false; panningRef.current = null; }} onPointerCancel={() => { drawingRef.current = false; panningRef.current = null; }} onContextMenu={(event) => event.preventDefault()} onWheel={handleWheel} className={`absolute inset-0 h-full w-full ${panningRef.current ? "cursor-grabbing" : "cursor-crosshair"}`} />{!mapCanvas && <div className="absolute inset-0 grid place-items-center text-center"><div><FileImage className="mx-auto mb-3 text-slate-400" size={30}/><p className="text-sm font-medium text-slate-600">PGM map をアップロード</p><p className="mt-1 text-xs text-slate-500">P2 / P5 形式に対応しています</p></div></div>}</div><p className="mt-3 text-center text-xs text-slate-500">ホイール: 拡大・縮小　/　中ボタンまたは右ボタンドラッグ: 移動</p></div></Card></section>
+      <aside className="min-h-0"><Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Waypoints</h2><span className="text-xs text-slate-500">map frame</span></div>{waypoints.length ? <div className="max-h-[calc(100vh-180px)] overflow-y-auto overflow-x-hidden"><table className="w-full table-fixed text-left text-sm"><thead className="sticky top-0 bg-slate-50 text-xs text-slate-500"><tr><th className="w-[38%] px-4 py-2 font-medium">Name</th><th className="w-[18%] px-2 py-2 font-medium">X</th><th className="w-[18%] px-2 py-2 font-medium">Y</th><th className="w-[16%] px-2 py-2 font-medium">Angle</th><th className="w-9"/></tr></thead><tbody>{waypoints.map((p) => <tr key={p.id} onClick={() => setSelected(p.id)} className={`cursor-pointer border-t border-slate-100 ${selected === p.id ? "bg-orange-50" : "hover:bg-slate-50"}`}><td title={p.name} className="truncate px-4 py-3 font-medium">{p.name || "waypoint"}</td><td className="truncate px-2 py-3 font-mono text-xs">{fixed(p.x)}</td><td className="truncate px-2 py-3 font-mono text-xs">{fixed(p.y)}</td><td className="truncate px-2 py-3">{degree(p.yaw)}°</td><td><Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setWaypoints((items) => items.filter((item) => item.id !== p.id)); if (selected === p.id) setSelected(null); }}><Trash2 size={16}/></Button></td></tr>)}</tbody></table></div> : <p className="px-4 py-8 text-center text-sm text-slate-400">まだ waypoint がありません</p>}</Card></aside>
     </div></main>;
 }
