@@ -668,13 +668,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-center text-xs text-slate-500">
-                {aligningSatellite
-                  ? "Drag the satellite image to align / Right-drag to pan the map"
-                  : editorMode === "edit"
-                    ? "Drag a waypoint to move it / Ctrl+Z to undo / Right-drag to pan the map"
-                    : "Drag to add a waypoint and set its direction / Ctrl+Z to undo / Right-drag to pan the map"}
-              </p>
             </div>
             <div className="border-t border-slate-100 px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
