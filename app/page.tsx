@@ -540,7 +540,7 @@ export default function Home() {
         />
         <section className="min-w-0 min-h-0">
           <Card className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-100 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div className="flex flex-wrap gap-2">
                 <div className="flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
                   <Button
@@ -566,6 +566,8 @@ export default function Home() {
                     Edit
                   </Button>
                 </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   variant="outline"
                   size="icon"
