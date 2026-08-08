@@ -496,9 +496,9 @@ export default function Home() {
     link.click();
     URL.revokeObjectURL(link.href);
   };
-  const aspect = mapCanvas
-    ? `${mapCanvas.width} / ${mapCanvas.height}`
-    : "16 / 10";
+  const previewAspectRatio = mapCanvas
+    ? mapCanvas.width / mapCanvas.height
+    : 16 / 10;
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-slate-50">
       <header className="shrink-0 border-b border-slate-200 bg-white">
@@ -540,7 +540,7 @@ export default function Home() {
         />
         <section className="min-w-0 min-h-0">
           <Card className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-100 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div className="flex flex-wrap gap-2">
                 <div className="flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
                   <Button
@@ -566,6 +566,8 @@ export default function Home() {
                     Edit
                   </Button>
                 </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   variant="outline"
                   size="icon"
@@ -631,10 +633,12 @@ export default function Home() {
             </div>
             <div className="bg-slate-100 p-4">
               <div
-                className="relative mx-auto max-h-[65vh] max-w-full overflow-hidden rounded-lg bg-slate-200"
+                className="relative mx-auto max-w-full overflow-hidden rounded-lg bg-slate-200"
                 style={{
-                  aspectRatio: aspect,
-                  width: mapCanvas ? "min(100%, 960px)" : "100%",
+                  aspectRatio: previewAspectRatio,
+                  width: mapCanvas
+                    ? `min(100%, 960px, ${65 * previewAspectRatio}vh)`
+                    : "100%",
                 }}
               >
                 <canvas
@@ -666,13 +670,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-center text-xs text-slate-500">
-                {aligningSatellite
-                  ? "Drag the satellite image to align / Right-drag to pan the map"
-                  : editorMode === "edit"
-                    ? "Drag a waypoint to move it / Ctrl+Z to undo / Right-drag to pan the map"
-                    : "Drag to add a waypoint and set its direction / Ctrl+Z to undo / Right-drag to pan the map"}
-              </p>
             </div>
             <div className="border-t border-slate-100 px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
