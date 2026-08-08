@@ -28,6 +28,8 @@ GOOGLE_MAPS_API_KEY=your_api_key_here
 5. 位置合わせを終了し、地図をクリックしてそのままドラッグすることで地点と向きを指定します。
 6. `YAML をダウンロード` を押すと `waypoints.yaml` を取得できます。
 
+waypoint の追加・編集・移動・削除は `Ctrl+Z`（macOSでは `Command+Z`）で元に戻せます。`Ctrl+Shift+Z` / `Ctrl+Y`（macOSでは `Command+Shift+Z`）でやり直せます。ツールバーの元に戻す／やり直すボタンも利用できます。
+
 map YAML の `resolution` と `origin: [x, y, yaw]` を座標変換に用います。出力する姿勢は指定されたヨー角からクォータニオンに変換されます。
 
 waypoints YAML は、このアプリが出力する `waypoints` 配列のほか、`poses` 配列および `pose.position` / `pose.orientation` 形式も読み込めます。読み込んだクォータニオンからヨー角を復元します。

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, PointerEvent, WheelEvent, useEffect, useRef, useState } from "react";
-import { Download, Eye, EyeOff, FileImage, FileUp, Hand, ImagePlus, Layers, Loader2, MapPin, Move, Pencil, Plus, RotateCcw, Satellite, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, Eye, EyeOff, FileImage, FileUp, Hand, ImagePlus, Layers, Loader2, MapPin, Move, Pencil, Plus, Redo2, RotateCcw, Satellite, Trash2, Undo2, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,9 @@ type Waypoint = { id: number; name: string; x: number; y: number; yaw: number };
 type Viewport = { zoom: number; offsetX: number; offsetY: number };
 type EditorMode = "add" | "edit";
 type SatelliteLayer = { image: HTMLImageElement; name: string; opacity: number; visible: boolean; offsetX: number; offsetY: number; scale: number; rotation: number };
+type WaypointSnapshot = { waypoints: Waypoint[]; selected: number | null };
 const defaultMap: MapInfo = { resolution: 0.05, originX: 0, originY: 0, originYaw: 0 };
+const historyLimit = 100;
 
 function readToken(bytes: Uint8Array, index: number) {
   while (index < bytes.length && (bytes[index] === 9 || bytes[index] === 10 || bytes[index] === 13 || bytes[index] === 32)) index++;
@@ -90,7 +92,50 @@ export default function Home() {
   const [googleLocation, setGoogleLocation] = useState({ lat: "35.681236", lng: "139.767125", zoom: 18 });
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [message, setMessage] = useState("PGM と map YAML を読み込んで始めましょう");
-  const canvasRef = useRef<HTMLCanvasElement>(null); const drawingRef = useRef(false); const waypointDragRef = useRef<number | null>(null); const panningRef = useRef<{ x: number; y: number; viewport: Viewport } | null>(null); const satelliteDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const [, setHistoryRevision] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null); const drawingRef = useRef(false); const waypointDragRef = useRef<{ id: number; snapshot: WaypointSnapshot; moved: boolean } | null>(null); const panningRef = useRef<{ x: number; y: number; viewport: Viewport } | null>(null); const satelliteDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const waypointsRef = useRef(waypoints); const selectedRef = useRef(selected); const waypointHistoryRef = useRef<{ past: WaypointSnapshot[]; future: WaypointSnapshot[] }>({ past: [], future: [] });
+  waypointsRef.current = waypoints; selectedRef.current = selected;
+
+  const snapshotWaypoints = (): WaypointSnapshot => ({ waypoints: waypointsRef.current.map((point) => ({ ...point })), selected: selectedRef.current });
+  const restoreWaypoints = (snapshot: WaypointSnapshot) => {
+    const points = snapshot.waypoints.map((point) => ({ ...point }));
+    waypointsRef.current = points; selectedRef.current = snapshot.selected;
+    setWaypoints(points); setSelected(snapshot.selected);
+  };
+  const pushWaypointHistory = (snapshot = snapshotWaypoints()) => {
+    const history = waypointHistoryRef.current;
+    history.past.push({ waypoints: snapshot.waypoints.map((point) => ({ ...point })), selected: snapshot.selected });
+    if (history.past.length > historyLimit) history.past.shift();
+    history.future = []; setHistoryRevision((revision) => revision + 1);
+  };
+  const replaceWaypoints = (points: Waypoint[], nextSelected = selectedRef.current) => {
+    waypointsRef.current = points; selectedRef.current = nextSelected;
+    setWaypoints(points); setSelected(nextSelected);
+  };
+  const commitWaypoints = (points: Waypoint[], nextSelected = selectedRef.current) => { pushWaypointHistory(); replaceWaypoints(points, nextSelected); };
+  const undo = () => {
+    const history = waypointHistoryRef.current; const previous = history.past.pop(); if (!previous) return;
+    drawingRef.current = false; waypointDragRef.current = null;
+    history.future.push(snapshotWaypoints()); restoreWaypoints(previous); setHistoryRevision((revision) => revision + 1); setMessage("操作を元に戻しました。");
+  };
+  const redo = () => {
+    const history = waypointHistoryRef.current; const next = history.future.pop(); if (!next) return;
+    drawingRef.current = false; waypointDragRef.current = null;
+    history.past.push(snapshotWaypoints()); restoreWaypoints(next); setHistoryRevision((revision) => revision + 1); setMessage("操作をやり直しました。");
+  };
+  const canUndo = waypointHistoryRef.current.past.length > 0;
+  const canRedo = waypointHistoryRef.current.future.length > 0;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); }
+      else if (event.key.toLowerCase() === "y") { event.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   const draw = () => {
     const view = canvasRef.current; if (!view) return;
@@ -131,8 +176,8 @@ export default function Home() {
       const loaded = parseWaypointsYaml(await file.text());
       if (waypoints.length && !window.confirm(`現在の ${waypoints.length} 件を、${loaded.length} 件の読み込み内容で置き換えますか？`)) return;
       const idBase = Date.now();
-      setWaypoints(loaded.map((point, index) => ({ ...point, id: idBase + index })));
-      setSelected(null); setWaypointsName(file.name);
+      commitWaypoints(loaded.map((point, index) => ({ ...point, id: idBase + index })), null);
+      setWaypointsName(file.name);
       setMessage(`${file.name} から ${loaded.length} 件の waypoint を読み込みました。`);
     } catch (error) { setMessage(error instanceof Error ? error.message : "waypoints YAML の読み込みに失敗しました。"); }
     finally { input.value = ""; }
@@ -168,10 +213,10 @@ export default function Home() {
     return { x: mapInfo.originX + Math.cos(mapInfo.originYaw) * lx - Math.sin(mapInfo.originYaw) * ly, y: mapInfo.originY + Math.sin(mapInfo.originYaw) * lx + Math.cos(mapInfo.originYaw) * ly, px, py };
   };
   const selectedWaypoint = waypoints.find((point) => point.id === selected) ?? null;
-  const updateWaypoint = (id: number, patch: Partial<Waypoint>) => setWaypoints((points) => points.map((point) => point.id === id ? { ...point, ...patch } : point));
+  const updateWaypoint = (id: number, patch: Partial<Waypoint>) => commitWaypoints(waypointsRef.current.map((point) => point.id === id ? { ...point, ...patch } : point));
   const deleteWaypoint = (id: number) => {
-    setWaypoints((points) => renumberWaypointNames(points.filter((point) => point.id !== id), waypointNameBase(points)));
-    if (selected === id) setSelected(null);
+    const points = waypointsRef.current;
+    commitWaypoints(renumberWaypointNames(points.filter((point) => point.id !== id), waypointNameBase(points)), selectedRef.current === id ? null : selectedRef.current);
   };
   const waypointAt = (px: number, py: number, canvas: HTMLCanvasElement) => {
     const hitRadius = Math.max(10, canvas.width / 70) * viewport.zoom;
@@ -192,18 +237,19 @@ export default function Home() {
     const p = pointFromEvent(event);
     if (editorMode === "edit") {
       const point = waypointAt(p.px, p.py, event.currentTarget);
-      if (point) { setSelected(point.id); waypointDragRef.current = point.id; }
-      else setSelected(null);
+      if (point) { setSelected(point.id); selectedRef.current = point.id; waypointDragRef.current = { id: point.id, snapshot: snapshotWaypoints(), moved: false }; }
+      else { setSelected(null); selectedRef.current = null; }
       return;
     }
-    const id = Date.now(); drawingRef.current = true; setSelected(id); setWaypoints((points) => [...points, { id, name: `waypoint_${points.length + waypointNameBase(points)}`, x: p.x, y: p.y, yaw: mapInfo.originYaw }]);
+    const id = Date.now(); const points = waypointsRef.current; drawingRef.current = true;
+    commitWaypoints([...points, { id, name: `waypoint_${points.length + waypointNameBase(points)}`, x: p.x, y: p.y, yaw: mapInfo.originYaw }], id);
   };
   const turnPoint = (event: PointerEvent<HTMLCanvasElement>) => {
     if (panningRef.current) { const pan = panningRef.current; const canvas = event.currentTarget; const bounds = canvas.getBoundingClientRect(); setViewport({ ...pan.viewport, offsetX: pan.viewport.offsetX + (event.clientX - pan.x) * canvas.width / bounds.width, offsetY: pan.viewport.offsetY + (event.clientY - pan.y) * canvas.height / bounds.height }); return; }
     if (satelliteDragRef.current) { const drag = satelliteDragRef.current; const canvas = event.currentTarget; const bounds = canvas.getBoundingClientRect(); updateSatellite({ offsetX: drag.offsetX + (event.clientX - drag.x) * canvas.width / bounds.width / viewport.zoom, offsetY: drag.offsetY + (event.clientY - drag.y) * canvas.height / bounds.height / viewport.zoom }); return; }
-    if (waypointDragRef.current !== null) { const p = pointFromEvent(event); updateWaypoint(waypointDragRef.current, { x: p.x, y: p.y }); return; }
-    if (!drawingRef.current || selected === null) return; const p = pointFromEvent(event);
-    setWaypoints((points) => points.map((item) => item.id === selected ? { ...item, yaw: Math.atan2(p.y - item.y, p.x - item.x) } : item));
+    if (waypointDragRef.current !== null) { const p = pointFromEvent(event); const drag = waypointDragRef.current; if (!drag.moved) { pushWaypointHistory(drag.snapshot); drag.moved = true; } replaceWaypoints(waypointsRef.current.map((point) => point.id === drag.id ? { ...point, x: p.x, y: p.y } : point)); return; }
+    if (!drawingRef.current || selectedRef.current === null) return; const p = pointFromEvent(event);
+    replaceWaypoints(waypointsRef.current.map((item) => item.id === selectedRef.current ? { ...item, yaw: Math.atan2(p.y - item.y, p.x - item.x) } : item));
   };
   const finishPointer = () => { drawingRef.current = false; waypointDragRef.current = null; panningRef.current = null; satelliteDragRef.current = null; };
   const zoomAt = (factor: number, canvas?: HTMLCanvasElement, clientX?: number, clientY?: number) => {
@@ -226,7 +272,7 @@ export default function Home() {
 	        <Card className="p-4"><h2 className="text-sm font-semibold">Waypoint file</h2><p className="mt-1 text-xs leading-5 text-slate-500">作成済みの waypoints YAML を読み込み、続きから編集できます。</p><label className="mt-3 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><FileUp size={18} className="text-slate-500"/><span className="min-w-0 flex-1 truncate text-sm">{waypointsName || "waypoints YAML を選択"}</span><input className="hidden" type="file" accept=".yaml,.yml,text/yaml,application/x-yaml" onChange={handleWaypointsYaml}/><Upload size={16}/></label></Card>
 	        <Card className="p-4"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Layers size={16} className="text-slate-500"/><h2 className="text-sm font-semibold">Satellite overlay</h2></div>{satellite && <Button variant="ghost" size="icon" className="h-8 w-8" title={satellite.visible ? "衛星画像を隠す" : "衛星画像を表示"} onClick={() => { updateSatellite({ visible: !satellite.visible }); if (satellite.visible) setAligningSatellite(false); }}>{satellite.visible ? <Eye size={16}/> : <EyeOff size={16}/>}</Button>}</div><p className="mt-1 text-xs leading-5 text-slate-500">衛星画像を重ね、PGM に位置合わせします。</p><div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3"><div className="flex items-center gap-2 text-xs font-semibold text-slate-700"><Satellite size={15}/>Google Mapsから取得</div><div className="mt-3 grid grid-cols-2 gap-2"><label className="block text-xs font-medium text-slate-500">Latitude<input type="number" step="0.000001" value={googleLocation.lat} onChange={(e) => setGoogleLocation((value) => ({ ...value, lat: e.target.value }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-slate-500"/></label><label className="block text-xs font-medium text-slate-500">Longitude<input type="number" step="0.000001" value={googleLocation.lng} onChange={(e) => setGoogleLocation((value) => ({ ...value, lng: e.target.value }))} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm outline-none focus:border-slate-500"/></label></div><label className="mt-2 block text-xs font-medium text-slate-500">Zoom <span className="float-right text-slate-700">{googleLocation.zoom}</span><input type="range" min="0" max="21" step="1" value={googleLocation.zoom} onChange={(e) => setGoogleLocation((value) => ({ ...value, zoom: Number(e.target.value) }))} className="mt-2 w-full accent-slate-800"/></label><Button className="mt-2 w-full" onClick={fetchGoogleSatellite} disabled={loadingGoogle}>{loadingGoogle ? <Loader2 size={15} className="animate-spin"/> : <Satellite size={15}/>}衛星画像を取得</Button></div><div className="my-3 flex items-center gap-2 text-[11px] text-slate-400"><span className="h-px flex-1 bg-slate-200"/>またはローカル画像<span className="h-px flex-1 bg-slate-200"/></div><label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500"><ImagePlus size={18} className="text-slate-500"/><span className="min-w-0 flex-1 truncate text-sm">{satellite?.name || "画像を選択"}</span><input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleSatellite}/><Upload size={16}/></label>{satellite && <div className="mt-4 space-y-3"><label className="block text-xs font-medium text-slate-500">Opacity <span className="float-right text-slate-700">{Math.round(satellite.opacity * 100)}%</span><input type="range" min="0" max="1" step="0.01" value={satellite.opacity} onChange={(e) => updateSatellite({ opacity: Number(e.target.value) })} className="mt-2 w-full accent-slate-800"/></label><div className="grid grid-cols-2 gap-2"><label className="block text-xs font-medium text-slate-500">X offset (px)<input type="number" step="1" value={Math.round(satellite.offsetX)} onChange={(e) => updateSatellite({ offsetX: Number(e.target.value) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-slate-500"/></label><label className="block text-xs font-medium text-slate-500">Y offset (px)<input type="number" step="1" value={Math.round(satellite.offsetY)} onChange={(e) => updateSatellite({ offsetY: Number(e.target.value) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-slate-500"/></label><label className="block text-xs font-medium text-slate-500">Scale (%)<input type="number" min="1" step="1" value={Math.round(satellite.scale * 100)} onChange={(e) => updateSatellite({ scale: Math.max(0.01, Number(e.target.value) / 100) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-slate-500"/></label><label className="block text-xs font-medium text-slate-500">Rotation (°)<input type="number" step="1" value={satellite.rotation} onChange={(e) => updateSatellite({ rotation: Number(e.target.value) })} className="mt-1.5 h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-slate-500"/></label></div><Button variant={aligningSatellite ? "default" : "outline"} className="w-full" onClick={() => setAligningSatellite((active) => !active)}><Move size={15}/>{aligningSatellite ? "位置合わせを終了" : "ドラッグで位置合わせ"}</Button><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => updateSatellite({ offsetX: 0, offsetY: 0, scale: 1, rotation: 0 })}><RotateCcw size={15}/>リセット</Button><Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setSatellite(null); setAligningSatellite(false); }}><Trash2 size={15}/>削除</Button></div></div>}</Card>
 	        <Card className="p-4"><h2 className="text-sm font-semibold">Map parameters</h2><div className="mt-3 space-y-2 text-sm"><div className="flex justify-between"><span className="text-slate-500">Resolution</span><span>{mapInfo.resolution} m/px</span></div><div className="flex justify-between"><span className="text-slate-500">Origin</span><span>{mapInfo.originX}, {mapInfo.originY}</span></div><div className="flex justify-between"><span className="text-slate-500">Yaw</span><span>{degree(mapInfo.originYaw)}°</span></div></div></Card></aside>
-	      <section className="min-w-0 min-h-0"><Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold">Map preview</h2><p className="text-xs text-slate-500">{message}</p></div><div className="flex flex-wrap gap-2"><div className="flex rounded-md border border-slate-200 bg-slate-50 p-0.5"><Button variant={editorMode === "add" ? "default" : "ghost"} className="h-8 px-3" onClick={() => { setEditorMode("add"); setAligningSatellite(false); }}><Plus size={15}/>新規追加</Button><Button variant={editorMode === "edit" ? "default" : "ghost"} className="h-8 px-3" onClick={() => { setEditorMode("edit"); setAligningSatellite(false); }}><Pencil size={14}/>編集</Button></div><Button variant="outline" size="icon" title="縮小" onClick={() => zoomAt(1 / 1.25)} disabled={!mapCanvas}><ZoomOut size={16}/></Button><Button variant="outline" size="icon" title="拡大" onClick={() => zoomAt(1.25)} disabled={!mapCanvas}><ZoomIn size={16}/></Button><Button variant="outline" size="icon" title="表示をリセット" onClick={() => setViewport({ zoom: 1, offsetX: 0, offsetY: 0 })} disabled={!mapCanvas}><Hand size={16}/></Button><Button variant="outline" size="icon" title="すべて削除" onClick={() => { setWaypoints([]); setSelected(null); }} disabled={!waypoints.length}><RotateCcw size={16}/></Button><Button onClick={exportYaml} disabled={!waypoints.length}><Download size={16}/> YAML をダウンロード</Button></div></div><div className="bg-slate-100 p-4"><div className="relative mx-auto max-h-[65vh] max-w-full overflow-hidden rounded-lg bg-slate-200" style={{ aspectRatio: aspect, width: mapCanvas ? "min(100%, 960px)" : "100%" }}><canvas ref={canvasRef} width={mapCanvas?.width ?? 960} height={mapCanvas?.height ?? 600} onPointerDown={startPoint} onPointerMove={turnPoint} onPointerUp={finishPointer} onPointerCancel={finishPointer} onContextMenu={(event) => event.preventDefault()} onWheel={handleWheel} className={`absolute inset-0 h-full w-full ${panningRef.current || satelliteDragRef.current || waypointDragRef.current !== null ? "cursor-grabbing" : aligningSatellite || editorMode === "edit" ? "cursor-move" : "cursor-crosshair"}`} />{!mapCanvas && <div className="absolute inset-0 grid place-items-center text-center"><div><FileImage className="mx-auto mb-3 text-slate-400" size={30}/><p className="text-sm font-medium text-slate-600">PGM map をアップロード</p><p className="mt-1 text-xs text-slate-500">P2 / P5 形式に対応しています</p></div></div>}</div><p className="mt-3 text-center text-xs text-slate-500">{aligningSatellite ? "衛星画像をドラッグして位置合わせ　/　右ドラッグ: 地図を移動" : editorMode === "edit" ? "waypointをドラッグ: 位置を移動　/　ホイール: 拡大・縮小　/　右ドラッグ: 地図を移動" : "ドラッグ: waypointを追加して向きを設定　/　ホイール: 拡大・縮小　/　右ドラッグ: 地図を移動"}</p></div></Card></section>
+	      <section className="min-w-0 min-h-0"><Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold">Map preview</h2><p className="text-xs text-slate-500">{message}</p></div><div className="flex flex-wrap gap-2"><div className="flex rounded-md border border-slate-200 bg-slate-50 p-0.5"><Button variant={editorMode === "add" ? "default" : "ghost"} className="h-8 px-3" onClick={() => { setEditorMode("add"); setAligningSatellite(false); }}><Plus size={15}/>新規追加</Button><Button variant={editorMode === "edit" ? "default" : "ghost"} className="h-8 px-3" onClick={() => { setEditorMode("edit"); setAligningSatellite(false); }}><Pencil size={14}/>編集</Button></div><Button variant="outline" size="icon" title="元に戻す (Ctrl+Z)" aria-label="元に戻す" onClick={undo} disabled={!canUndo}><Undo2 size={16}/></Button><Button variant="outline" size="icon" title="やり直す (Ctrl+Shift+Z / Ctrl+Y)" aria-label="やり直す" onClick={redo} disabled={!canRedo}><Redo2 size={16}/></Button><Button variant="outline" size="icon" title="縮小" onClick={() => zoomAt(1 / 1.25)} disabled={!mapCanvas}><ZoomOut size={16}/></Button><Button variant="outline" size="icon" title="拡大" onClick={() => zoomAt(1.25)} disabled={!mapCanvas}><ZoomIn size={16}/></Button><Button variant="outline" size="icon" title="表示をリセット" onClick={() => setViewport({ zoom: 1, offsetX: 0, offsetY: 0 })} disabled={!mapCanvas}><Hand size={16}/></Button><Button variant="outline" size="icon" title="すべて削除" onClick={() => commitWaypoints([], null)} disabled={!waypoints.length}><RotateCcw size={16}/></Button><Button onClick={exportYaml} disabled={!waypoints.length}><Download size={16}/> YAML をダウンロード</Button></div></div><div className="bg-slate-100 p-4"><div className="relative mx-auto max-h-[65vh] max-w-full overflow-hidden rounded-lg bg-slate-200" style={{ aspectRatio: aspect, width: mapCanvas ? "min(100%, 960px)" : "100%" }}><canvas ref={canvasRef} width={mapCanvas?.width ?? 960} height={mapCanvas?.height ?? 600} onPointerDown={startPoint} onPointerMove={turnPoint} onPointerUp={finishPointer} onPointerCancel={finishPointer} onContextMenu={(event) => event.preventDefault()} onWheel={handleWheel} className={`absolute inset-0 h-full w-full ${panningRef.current || satelliteDragRef.current || waypointDragRef.current !== null ? "cursor-grabbing" : aligningSatellite || editorMode === "edit" ? "cursor-move" : "cursor-crosshair"}`} />{!mapCanvas && <div className="absolute inset-0 grid place-items-center text-center"><div><FileImage className="mx-auto mb-3 text-slate-400" size={30}/><p className="text-sm font-medium text-slate-600">PGM map をアップロード</p><p className="mt-1 text-xs text-slate-500">P2 / P5 形式に対応しています</p></div></div>}</div><p className="mt-3 text-center text-xs text-slate-500">{aligningSatellite ? "衛星画像をドラッグして位置合わせ　/　右ドラッグ: 地図を移動" : editorMode === "edit" ? "waypointをドラッグ: 位置を移動　/　Ctrl+Z: 元に戻す　/　右ドラッグ: 地図を移動" : "ドラッグ: waypointを追加して向きを設定　/　Ctrl+Z: 元に戻す　/　右ドラッグ: 地図を移動"}</p></div></Card></section>
       <aside className="min-h-0"><Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Waypoints</h2><span className="text-xs text-slate-500">map frame</span></div>{waypoints.length ? <div className="max-h-[calc(100vh-180px)] overflow-y-auto overflow-x-hidden"><table className="w-full table-fixed text-left text-sm"><thead className="sticky top-0 bg-slate-50 text-xs text-slate-500"><tr><th className="w-[38%] px-4 py-2 font-medium">Name</th><th className="w-[18%] px-2 py-2 font-medium">X</th><th className="w-[18%] px-2 py-2 font-medium">Y</th><th className="w-[16%] px-2 py-2 font-medium">Angle</th><th className="w-9"/></tr></thead><tbody>{waypoints.map((p) => <tr key={p.id} onClick={() => { setSelected(p.id); setEditorMode("edit"); setAligningSatellite(false); }} className={`cursor-pointer border-t border-slate-100 ${selected === p.id ? "bg-orange-50" : "hover:bg-slate-50"}`}><td title={p.name} className="truncate px-4 py-3 font-medium">{p.name || "waypoint"}</td><td className="truncate px-2 py-3 font-mono text-xs">{fixed(p.x)}</td><td className="truncate px-2 py-3 font-mono text-xs">{fixed(p.y)}</td><td className="truncate px-2 py-3">{degree(p.yaw)}°</td><td><Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); deleteWaypoint(p.id); }}><Trash2 size={16}/></Button></td></tr>)}</tbody></table></div> : <p className="px-4 py-8 text-center text-sm text-slate-400">まだ waypoint がありません</p>}</Card></aside>
     </div></main>;
 }
