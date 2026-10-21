@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import type { SatelliteLayer } from "@/lib/waypoint-map";
 
 export type GoogleLocation = {
@@ -43,7 +42,9 @@ type SourceSidebarProps = {
 };
 
 const NUMBER_INPUT_CLASS =
-  "mt-1.5 h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-slate-500";
+  "mt-1.5 h-9 w-full rounded-md border border-slate-700 bg-slate-800 px-2 text-sm text-white outline-none focus:border-blue-500";
+const DARK_OUTLINE_CLASS =
+  "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700";
 
 export function SourceSidebar({
   mapName,
@@ -63,47 +64,53 @@ export function SourceSidebar({
   onSatelliteRemove,
 }: SourceSidebarProps) {
   return (
-    <aside className="min-h-0 space-y-4 overflow-y-auto pr-1">
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold">Map files</h2>
+    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-3">
+      <section>
+        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Map files
+        </h2>
         <FilePicker
           className="mt-4"
-          icon={<FileImage size={18} className="text-slate-500" />}
+          icon={<FileImage size={18} className="text-slate-400" />}
           label={mapName || "Select PGM file"}
           accept=".pgm,image/x-portable-graymap"
           onChange={onPgmChange}
         />
         <FilePicker
           className="mt-2"
-          icon={<FileUp size={18} className="text-slate-500" />}
+          icon={<FileUp size={18} className="text-slate-400" />}
           label="Select map YAML"
           accept=".yaml,.yml,text/yaml"
           onChange={onMapYamlChange}
         />
-      </Card>
+      </section>
 
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold">Waypoint file</h2>
+      <section>
+        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Waypoint file
+        </h2>
         <FilePicker
           className="mt-3"
-          icon={<FileUp size={18} className="text-slate-500" />}
+          icon={<FileUp size={18} className="text-slate-400" />}
           label={waypointsName || "Select waypoints YAML"}
           accept=".yaml,.yml,text/yaml,application/x-yaml"
           onChange={onWaypointsYamlChange}
         />
-      </Card>
+      </section>
 
-      <Card className="p-4">
+      <section>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Layers size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold">Satellite overlay</h2>
+            <Layers size={13} className="text-slate-500" />
+            <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Satellite overlay
+            </h2>
           </div>
           {satellite && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7 text-slate-400 hover:bg-slate-800 hover:text-white"
               title={
                 satellite.visible
                   ? "Hide satellite image"
@@ -126,13 +133,13 @@ export function SourceSidebar({
           onFetch={onFetchSatellite}
         />
 
-        <div className="my-3 flex items-center gap-2 text-[11px] text-slate-400">
-          <span className="h-px flex-1 bg-slate-200" />
+        <div className="my-3 flex items-center gap-2 text-[11px] text-slate-500">
+          <span className="h-px flex-1 bg-slate-700" />
           or use a local image
-          <span className="h-px flex-1 bg-slate-200" />
+          <span className="h-px flex-1 bg-slate-700" />
         </div>
         <FilePicker
-          icon={<ImagePlus size={18} className="text-slate-500" />}
+          icon={<ImagePlus size={18} className="text-slate-400" />}
           label={satellite?.name || "Select image"}
           accept="image/png,image/jpeg,image/webp"
           onChange={onSatelliteImageChange}
@@ -147,8 +154,8 @@ export function SourceSidebar({
             onRemove={onSatelliteRemove}
           />
         )}
-      </Card>
-    </aside>
+      </section>
+    </div>
   );
 }
 
@@ -169,7 +176,7 @@ function FilePicker({
 }: FilePickerProps) {
   return (
     <label
-      className={`${className} flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 p-3 hover:border-slate-500`}
+      className={`${className} flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 p-3 text-slate-200 hover:border-slate-500 hover:bg-slate-800/60`}
     >
       {icon}
       <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
@@ -179,7 +186,7 @@ function FilePicker({
         accept={accept}
         onChange={onChange}
       />
-      <Upload size={16} />
+      <Upload size={16} className="text-slate-400" />
     </label>
   );
 }
@@ -198,8 +205,8 @@ function GoogleSatelliteForm({
   onFetch,
 }: GoogleSatelliteFormProps) {
   return (
-    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+    <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
         <Satellite size={15} />
         Fetch from Google Maps
       </div>
@@ -217,8 +224,8 @@ function GoogleSatelliteForm({
           onChange={(lng) => onLocationChange({ lng })}
         />
       </div>
-      <label className="mt-2 block text-xs font-medium text-slate-500">
-        Zoom <span className="float-right text-slate-700">{location.zoom}</span>
+      <label className="mt-2 block text-xs font-medium text-slate-400">
+        Zoom <span className="float-right text-slate-200">{location.zoom}</span>
         <input
           type="range"
           min="0"
@@ -228,7 +235,7 @@ function GoogleSatelliteForm({
           onChange={(event) =>
             onLocationChange({ zoom: Number(event.target.value) })
           }
-          className="mt-2 w-full accent-slate-800"
+          className="mt-2 w-full accent-blue-500"
         />
       </label>
       <Button className="mt-2 w-full" onClick={onFetch} disabled={isFetching}>
@@ -260,9 +267,9 @@ function SatelliteSettings({
 }: SatelliteSettingsProps) {
   return (
     <div className="mt-4 space-y-3">
-      <label className="block text-xs font-medium text-slate-500">
+      <label className="block text-xs font-medium text-slate-400">
         Opacity
-        <span className="float-right text-slate-700">
+        <span className="float-right text-slate-200">
           {Math.round(satellite.opacity * 100)}%
         </span>
         <input
@@ -274,7 +281,7 @@ function SatelliteSettings({
           onChange={(event) =>
             onChange({ opacity: Number(event.target.value) })
           }
-          className="mt-2 w-full accent-slate-800"
+          className="mt-2 w-full accent-blue-500"
         />
       </label>
 
@@ -306,7 +313,7 @@ function SatelliteSettings({
 
       <Button
         variant={isAligning ? "default" : "outline"}
-        className="w-full"
+        className={`w-full ${isAligning ? "" : DARK_OUTLINE_CLASS}`}
         onClick={() => onAlignmentChange(!isAligning)}
       >
         <Move size={15} />
@@ -315,6 +322,7 @@ function SatelliteSettings({
       <div className="grid grid-cols-2 gap-2">
         <Button
           variant="outline"
+          className={DARK_OUTLINE_CLASS}
           onClick={() =>
             onChange({ offsetX: 0, offsetY: 0, scale: 1, rotation: 0 })
           }
@@ -323,7 +331,7 @@ function SatelliteSettings({
         </Button>
         <Button
           variant="outline"
-          className="text-red-600 hover:text-red-700"
+          className={`${DARK_OUTLINE_CLASS} text-rose-400 hover:text-rose-300`}
           onClick={onRemove}
         >
           <Trash2 size={15} /> Delete
@@ -349,7 +357,7 @@ function NumberInput({
   onChange,
 }: NumberInputProps) {
   return (
-    <label className="block text-xs font-medium text-slate-500">
+    <label className="block text-xs font-medium text-slate-400">
       {label}
       <input
         type="number"

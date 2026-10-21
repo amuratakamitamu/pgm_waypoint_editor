@@ -15,7 +15,7 @@ type WaypointSidebarProps = {
 };
 
 const INPUT_CLASS =
-  "mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-slate-500";
+  "mt-1.5 h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-blue-500";
 
 export function WaypointSidebar({
   waypoints,
@@ -99,6 +99,7 @@ function WaypointEditor({ waypoint, onDelete, onUpdate }: WaypointEditorProps) {
           <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <input
               type="checkbox"
+              className="accent-blue-600"
               checked={waypoint.stop ?? false}
               onChange={(event) =>
                 onUpdate(waypoint.id, { stop: event.target.checked })
@@ -139,7 +140,7 @@ function CoordinateInput({
       <input
         type="number"
         step={step}
-        value={value}
+        value={Number(formatCoordinate(value))}
         onChange={(event) => onChange(Number(event.target.value))}
         className={INPUT_CLASS}
       />
@@ -164,7 +165,9 @@ function WaypointTable({
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold">Waypoints</h2>
-        <span className="text-xs text-slate-500">map frame</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          map frame
+        </span>
       </div>
 
       {!waypoints.length ? (
@@ -174,12 +177,12 @@ function WaypointTable({
       ) : (
         <div className="overflow-x-hidden">
           <table className="w-full table-fixed text-left text-sm">
-            <thead className="sticky top-0 bg-slate-50 text-xs text-slate-500">
+            <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="w-[38%] px-4 py-2 font-medium">Name</th>
-                <th className="w-[18%] px-2 py-2 font-medium">X</th>
-                <th className="w-[18%] px-2 py-2 font-medium">Y</th>
-                <th className="w-[16%] px-2 py-2 font-medium">Angle</th>
+                <th className="w-[34%] px-4 py-2 font-medium">Name</th>
+                <th className="w-[20%] px-2 py-2 font-medium">X</th>
+                <th className="w-[20%] px-2 py-2 font-medium">Y</th>
+                <th className="w-[14%] px-2 py-2 font-medium">Angle</th>
                 <th className="w-9" />
               </tr>
             </thead>
@@ -200,14 +203,16 @@ function WaypointTable({
                   >
                     {waypoint.name || "waypoint"}
                     {waypoint.stop && (
-                      <span className="ml-1 text-xs text-red-600">■</span>
+                      <Badge className="ml-1.5 bg-red-100 px-1.5 text-red-700">
+                        STOP
+                      </Badge>
                     )}
                   </td>
                   <td className="truncate px-2 py-3 font-mono text-xs">
-                    {formatCoordinate(waypoint.x)}
+                    {waypoint.x.toFixed(2)}
                   </td>
                   <td className="truncate px-2 py-3 font-mono text-xs">
-                    {formatCoordinate(waypoint.y)}
+                    {waypoint.y.toFixed(2)}
                   </td>
                   <td className="truncate px-2 py-3">
                     {radiansToDegrees(waypoint.yaw)}°
