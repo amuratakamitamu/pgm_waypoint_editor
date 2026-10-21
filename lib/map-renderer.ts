@@ -114,8 +114,8 @@ function drawWaypoint(
   context.stroke();
 
   context.fillStyle = "white";
-  context.font = `bold ${Math.max(10, canvasWidth / 55)}px Arial`;
+  context.font = `bold ${Math.max(10, canvasWidth / 55)}px ${getComputedStyle(document.body).fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(String(index + 1), position.x, position.y + 1);
+  context.fillText(String(index), position.x, position.y + 1);
 }
