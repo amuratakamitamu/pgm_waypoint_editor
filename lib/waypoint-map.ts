@@ -13,6 +13,7 @@ export type Waypoint = {
   x: number;
   y: number;
   yaw: number;
+  stop?: boolean;
 };
 
 export type Viewport = {
@@ -121,6 +122,7 @@ function parseWaypoint(entry: unknown, index: number): Omit<Waypoint, "id"> {
     x,
     y,
     yaw: Number.isFinite(yaw) ? yaw : 0,
+    stop: entry.stop === true,
   };
 }
 
@@ -209,6 +211,7 @@ export function serializeWaypointsYaml(waypoints: Waypoint[]): string {
 
     return [
       `- name: ${waypoint.name || "waypoint"}`,
+      ...(waypoint.stop ? ["  stop: true"] : []),
       "  position:",
       `    x: ${formatCoordinate(waypoint.x)}`,
       `    y: ${formatCoordinate(waypoint.y)}`,

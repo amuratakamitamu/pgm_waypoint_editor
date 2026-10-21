@@ -86,7 +86,11 @@ function drawWaypoint(
 ): void {
   const position = worldToMapPixel(waypoint, mapInfo, canvasHeight);
   const angle = -(waypoint.yaw - mapInfo.originYaw);
-  const color = isSelected ? "#f97316" : "#2563eb";
+  const color = isSelected
+    ? "#f97316"
+    : waypoint.stop
+      ? "#dc2626"
+      : "#2563eb";
 
   context.strokeStyle = color;
   context.fillStyle = color;

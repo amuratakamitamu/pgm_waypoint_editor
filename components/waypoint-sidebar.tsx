@@ -96,6 +96,17 @@ function WaypointEditor({ waypoint, onDelete, onUpdate }: WaypointEditorProps) {
             }
           />
 
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <input
+              type="checkbox"
+              checked={waypoint.stop ?? false}
+              onChange={(event) =>
+                onUpdate(waypoint.id, { stop: event.target.checked })
+              }
+            />
+            Stop at this waypoint
+          </label>
+
           <Button
             variant="destructive"
             className="w-full"
@@ -188,6 +199,9 @@ function WaypointTable({
                     className="truncate px-4 py-3 font-medium"
                   >
                     {waypoint.name || "waypoint"}
+                    {waypoint.stop && (
+                      <span className="ml-1 text-xs text-red-600">■</span>
+                    )}
                   </td>
                   <td className="truncate px-2 py-3 font-mono text-xs">
                     {formatCoordinate(waypoint.x)}
