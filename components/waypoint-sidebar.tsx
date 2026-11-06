@@ -28,7 +28,7 @@ export function WaypointSidebar({
   onUpdate,
 }: WaypointSidebarProps) {
   return (
-    <aside className="min-h-0 space-y-4 overflow-y-auto pr-1">
+    <aside className="flex min-h-0 flex-col gap-4">
       <WaypointEditor
         waypoint={selectedWaypoint}
         onDelete={onDelete}
@@ -53,7 +53,7 @@ type WaypointEditorProps = {
 
 function WaypointEditor({ waypoint, onDelete, onUpdate }: WaypointEditorProps) {
   return (
-    <Card className="p-4">
+    <Card className="shrink-0 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Waypoint editor</h2>
         {waypoint && (
@@ -175,8 +175,8 @@ function WaypointTable({
   };
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold">Waypoints</h2>
         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           map frame
@@ -188,7 +188,7 @@ function WaypointTable({
           No waypoints yet
         </p>
       ) : (
-        <div className="overflow-x-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <table className="w-full table-fixed text-left text-sm">
             <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
               <tr>
