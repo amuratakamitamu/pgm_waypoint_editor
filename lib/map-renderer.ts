@@ -7,11 +7,11 @@ import type {
 } from "@/lib/waypoint-map";
 
 // Waypoint sizes in on-screen CSS pixels, independent of map resolution and zoom.
-export const WAYPOINT_RADIUS = 9;
-export const WAYPOINT_HIT_RADIUS = 14;
-const HEADING_LENGTH = 28;
-const LINE_WIDTH = 2.5;
-const FONT_SIZE = 11;
+export const WAYPOINT_RADIUS = 12;
+export const WAYPOINT_HIT_RADIUS = 20;
+const HEADING_LENGTH = 36;
+const LINE_WIDTH = 3;
+const FONT_SIZE = 13;
 
 /** Canvas pixels per on-screen CSS pixel (the canvas is stretched to fit its container). */
 export function canvasPixelRatio(canvas: HTMLCanvasElement): number {

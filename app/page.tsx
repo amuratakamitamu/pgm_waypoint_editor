@@ -470,7 +470,9 @@ export default function Home() {
         ? target.height / 2
         : ((clientY - bounds.top) * target.height) / bounds.height;
     setViewport((current) => {
-      const zoom = Math.min(6, Math.max(0.25, current.zoom * factor));
+      // Allow zooming until one map pixel is MAX_PIXEL_SIZE screen pixels, however large the map is.
+      const maxZoom = Math.max(6, MAX_PIXEL_SIZE * canvasPixelRatio(target));
+      const zoom = Math.min(maxZoom, Math.max(0.25, current.zoom * factor));
       const scale = zoom / current.zoom;
       return {
         zoom,
@@ -732,3 +734,5 @@ export default function Home() {
     </main>
   );
 }
+
+const MAX_PIXEL_SIZE = 20;
