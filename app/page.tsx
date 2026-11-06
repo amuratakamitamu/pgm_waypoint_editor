@@ -592,7 +592,7 @@ export default function Home() {
         </header>
         <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(0,1fr)_420px] gap-5 overflow-hidden px-6 py-4">
           <section className="min-w-0 min-h-0">
-            <Card className="overflow-hidden">
+            <Card className="flex h-full flex-col overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div className="flex flex-wrap gap-2">
                   <div className="flex rounded-lg bg-slate-100 p-1">
@@ -685,7 +685,9 @@ export default function Home() {
                 </div>
               </div>
               <div
-                className="relative bg-slate-100 p-4"
+                className="relative grid min-h-0 flex-1 place-items-center bg-slate-100 p-4"
+                // Size container so the map can fit both width and height (cqw / cqh).
+                style={{ containerType: "size" }}
                 onDragOver={(event) => {
                   if (!event.dataTransfer.types.includes("Files")) return;
                   event.preventDefault();
@@ -703,13 +705,15 @@ export default function Home() {
                   </div>
                 )}
                 <div
-                  className="relative mx-auto max-w-full overflow-hidden rounded-lg bg-slate-200"
-                  style={{
-                    aspectRatio: previewAspectRatio,
-                    width: mapCanvas
-                      ? `min(100%, 960px, ${65 * previewAspectRatio}vh)`
-                      : "100%",
-                  }}
+                  className="relative overflow-hidden rounded-lg bg-slate-200"
+                  style={
+                    mapCanvas
+                      ? {
+                          aspectRatio: previewAspectRatio,
+                          width: `min(100cqw, ${100 * previewAspectRatio}cqh)`,
+                        }
+                      : { width: "100%", height: "100%" }
+                  }
                 >
                   <canvas
                     ref={canvasRef}
