@@ -575,22 +575,7 @@ export default function Home() {
         </p>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="shrink-0 px-6 pb-2 pt-6">
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Waypoint Editor
-          </h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {mapName ? (
-              <>
-                Editing{" "}
-                <span className="font-semibold text-slate-700">{mapName}</span>
-              </>
-            ) : (
-              "Load a PGM map to get started."
-            )}
-          </p>
-        </header>
-        <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(0,1fr)_420px] gap-5 overflow-hidden px-6 py-4">
+        <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(0,1fr)_420px] gap-5 overflow-hidden px-6 py-6">
           <section className="min-w-0 min-h-0">
             <Card className="flex h-full flex-col overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
