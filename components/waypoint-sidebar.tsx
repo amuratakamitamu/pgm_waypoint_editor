@@ -197,16 +197,17 @@ function WaypointTable({
                       : "hover:bg-slate-50"
                   }`}
                 >
-                  <td
-                    title={waypoint.name}
-                    className="truncate px-4 py-3 font-medium"
-                  >
-                    {waypoint.name || "waypoint"}
-                    {waypoint.stop && (
-                      <Badge className="ml-1.5 bg-red-100 px-1.5 text-red-700">
-                        STOP
-                      </Badge>
-                    )}
+                  <td title={waypoint.name} className="px-4 py-3 font-medium">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="break-all">
+                        {waypoint.name || "waypoint"}
+                      </span>
+                      {waypoint.stop && (
+                        <Badge className="shrink-0 bg-red-100 px-1.5 text-red-700">
+                          STOP
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="truncate px-2 py-3 font-mono text-xs">
                     {waypoint.x.toFixed(2)}
