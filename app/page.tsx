@@ -27,7 +27,11 @@ import { SourceSidebar } from "@/components/source-sidebar";
 import { WaypointSidebar } from "@/components/waypoint-sidebar";
 import { useWaypointHistory } from "@/hooks/use-waypoint-history";
 import type { WaypointSnapshot } from "@/hooks/use-waypoint-history";
-import { renderMap } from "@/lib/map-renderer";
+import {
+  WAYPOINT_HIT_RADIUS,
+  canvasPixelRatio,
+  renderMap,
+} from "@/lib/map-renderer";
 import { parsePgm } from "@/lib/pgm";
 import {
   DEFAULT_MAP,
@@ -323,7 +327,7 @@ export default function Home() {
     );
   };
   const waypointAt = (px: number, py: number, canvas: HTMLCanvasElement) => {
-    const hitRadius = Math.max(10, canvas.width / 70) * viewport.zoom;
+    const hitRadius = WAYPOINT_HIT_RADIUS * canvasPixelRatio(canvas);
     return (
       [...waypoints].reverse().find((point) => {
         const mapPosition = worldToMapPixel(point, mapInfo, canvas.height);

@@ -6,6 +6,18 @@ import type {
   Waypoint,
 } from "@/lib/waypoint-map";
 
+// Waypoint sizes in on-screen CSS pixels, independent of map resolution and zoom.
+export const WAYPOINT_RADIUS = 9;
+export const WAYPOINT_HIT_RADIUS = 14;
+const HEADING_LENGTH = 28;
+const LINE_WIDTH = 2.5;
+const FONT_SIZE = 11;
+
+/** Canvas pixels per on-screen CSS pixel (the canvas is stretched to fit its container). */
+export function canvasPixelRatio(canvas: HTMLCanvasElement): number {
+  return canvas.clientWidth ? canvas.width / canvas.clientWidth : 1;
+}
+
 type RenderMapOptions = {
   context: CanvasRenderingContext2D;
   mapCanvas: HTMLCanvasElement | null;
@@ -42,8 +54,8 @@ export function renderMap({
       index,
       waypoint.id === selectedWaypointId,
       mapInfo,
-      width,
       height,
+      canvasPixelRatio(context.canvas) / viewport.zoom,
     );
   });
 
@@ -81,8 +93,8 @@ function drawWaypoint(
   index: number,
   isSelected: boolean,
   mapInfo: MapInfo,
-  canvasWidth: number,
   canvasHeight: number,
+  unit: number,
 ): void {
   const position = worldToMapPixel(waypoint, mapInfo, canvasHeight);
   const angle = -(waypoint.yaw - mapInfo.originYaw);
@@ -94,28 +106,22 @@ function drawWaypoint(
 
   context.strokeStyle = color;
   context.fillStyle = color;
-  context.lineWidth = Math.max(2, canvasWidth / 400);
+  context.lineWidth = LINE_WIDTH * unit;
   context.beginPath();
-  context.arc(
-    position.x,
-    position.y,
-    Math.max(6, canvasWidth / 90),
-    0,
-    Math.PI * 2,
-  );
+  context.arc(position.x, position.y, WAYPOINT_RADIUS * unit, 0, Math.PI * 2);
   context.fill();
 
   context.beginPath();
   context.moveTo(position.x, position.y);
   context.lineTo(
-    position.x + (Math.cos(angle) * canvasWidth) / 18,
-    position.y + (Math.sin(angle) * canvasWidth) / 18,
+    position.x + Math.cos(angle) * HEADING_LENGTH * unit,
+    position.y + Math.sin(angle) * HEADING_LENGTH * unit,
   );
   context.stroke();
 
   context.fillStyle = "white";
-  context.font = `bold ${Math.max(10, canvasWidth / 55)}px ${getComputedStyle(document.body).fontFamily}`;
+  context.font = `bold ${FONT_SIZE * unit}px ${getComputedStyle(document.body).fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(String(index), position.x, position.y + 1);
+  context.fillText(String(index), position.x, position.y + unit);
 }
