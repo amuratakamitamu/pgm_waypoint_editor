@@ -51,6 +51,7 @@ export default function Home() {
   const [mapCanvas, setMapCanvas] = useState<HTMLCanvasElement | null>(null);
   const [mapInfo, setMapInfo] = useState(DEFAULT_MAP);
   const [mapName, setMapName] = useState<string>("");
+  const [mapYamlName, setMapYamlName] = useState<string>("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [waypointsName, setWaypointsName] = useState<string>("");
   const {
@@ -158,6 +159,7 @@ export default function Home() {
   const loadMapYaml = async (file: File) => {
     try {
       setMapInfo(parseMapYaml(await file.text()));
+      setMapYamlName(file.name);
       setMessage(`Loaded coordinate settings from ${file.name}.`);
     } catch {
       setMessage("Failed to load the YAML file.");
@@ -533,6 +535,7 @@ export default function Home() {
         </div>
         <SourceSidebar
           mapName={mapName}
+          mapYamlName={mapYamlName}
           waypointsName={waypointsName}
           satellite={satellite}
           googleLocation={googleLocation}
