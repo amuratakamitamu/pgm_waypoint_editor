@@ -565,7 +565,29 @@ export default function Home() {
       event.clientY,
     );
   };
-  const exportYaml = () => {
+  const exportYaml = async () => {
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: waypointsName || "waypoints.yaml",
+          types: [
+            {
+              description: "Waypoints YAML",
+              accept: { "application/x-yaml": [".yaml", ".yml"] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(serializeWaypointsYaml(waypoints));
+        await writable.close();
+        // Later "Update YAML" writes to the file just saved.
+        setWaypointsHandle(handle);
+        setWaypointsName(handle.name);
+      } catch {
+        // The user closed the dialog.
+      }
+      return;
+    }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(
       new Blob([serializeWaypointsYaml(waypoints)], {
@@ -853,6 +875,12 @@ declare global {
     showOpenFilePicker?: (options?: {
       types?: { description?: string; accept: Record<string, string[]> }[];
     }) => Promise<FileSystemFileHandle[]>;
+  }
+  interface Window {
+    showSaveFilePicker?: (options?: {
+      suggestedName?: string;
+      types?: { description?: string; accept: Record<string, string[]> }[];
+    }) => Promise<FileSystemFileHandle>;
   }
   interface DataTransferItem {
     getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
