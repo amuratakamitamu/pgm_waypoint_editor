@@ -198,8 +198,8 @@ function WaypointTable({
                   }`}
                 >
                   <td title={waypoint.name} className="px-4 py-3 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="break-all">
                         {waypoint.name || "waypoint"}
                       </span>
                       {waypoint.stop && (
