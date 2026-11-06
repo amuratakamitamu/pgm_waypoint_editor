@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  DragEvent,
   PointerEvent,
   WheelEvent,
   useEffect,
@@ -54,6 +55,8 @@ export default function Home() {
   const [mapCanvas, setMapCanvas] = useState<HTMLCanvasElement | null>(null);
   const [mapInfo, setMapInfo] = useState(DEFAULT_MAP);
   const [mapName, setMapName] = useState<string>("");
+  const [mapYamlName, setMapYamlName] = useState<string>("");
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [waypointsName, setWaypointsName] = useState<string>("");
   const {
     waypoints,
@@ -145,9 +148,7 @@ export default function Home() {
     setViewport(DEFAULT_VIEWPORT);
   }, [mapCanvas]);
 
-  const handlePgm = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const loadPgm = async (file: File) => {
     try {
       const decoded = await parsePgm(file);
       setMapCanvas(decoded);
@@ -159,20 +160,16 @@ export default function Home() {
       );
     }
   };
-  const handleYaml = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const loadMapYaml = async (file: File) => {
     try {
       setMapInfo(parseMapYaml(await file.text()));
+      setMapYamlName(file.name);
       setMessage(`Loaded coordinate settings from ${file.name}.`);
     } catch {
       setMessage("Failed to load the YAML file.");
     }
   };
-  const handleWaypointsYaml = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.target;
-    const file = input.files?.[0];
-    if (!file) return;
+  const loadWaypointsYaml = async (file: File) => {
     try {
       const loaded = parseWaypointsYaml(await file.text());
       if (
@@ -195,8 +192,29 @@ export default function Home() {
           ? error.message
           : "Failed to load the waypoints YAML file.",
       );
-    } finally {
+    }
+  };
+  const fromInput =
+    (load: (file: File) => Promise<void>) =>
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const input = event.target;
+      const file = input.files?.[0];
       input.value = "";
+      if (file) await load(file);
+    };
+  const handleFileDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDraggingFile(false);
+    // PGM first so the map is ready before its YAML and waypoints.
+    const files = Array.from(event.dataTransfer.files).sort(
+      (a, b) => Number(!isPgm(a)) - Number(!isPgm(b)),
+    );
+    for (const file of files) {
+      if (isPgm(file)) await loadPgm(file);
+      else if (/\.ya?ml$/i.test(file.name)) {
+        if (isMapYaml(await file.text())) await loadMapYaml(file);
+        else await loadWaypointsYaml(file);
+      } else setMessage(`${file.name} is not a PGM or YAML file.`);
     }
   };
   const handleSatellite = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -523,14 +541,15 @@ export default function Home() {
         </div>
         <SourceSidebar
           mapName={mapName}
+          mapYamlName={mapYamlName}
           waypointsName={waypointsName}
           satellite={satellite}
           googleLocation={googleLocation}
           isFetchingSatellite={loadingGoogle}
           isAligningSatellite={aligningSatellite}
-          onPgmChange={handlePgm}
-          onMapYamlChange={handleYaml}
-          onWaypointsYamlChange={handleWaypointsYaml}
+          onPgmChange={fromInput(loadPgm)}
+          onMapYamlChange={fromInput(loadMapYaml)}
+          onWaypointsYamlChange={fromInput(loadWaypointsYaml)}
           onSatelliteImageChange={handleSatellite}
           onFetchSatellite={fetchGoogleSatellite}
           onGoogleLocationChange={(patch) =>
@@ -657,7 +676,24 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-              <div className="bg-slate-100 p-4">
+              <div
+                className="relative bg-slate-100 p-4"
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes("Files")) return;
+                  event.preventDefault();
+                  setIsDraggingFile(true);
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node))
+                    setIsDraggingFile(false);
+                }}
+                onDrop={handleFileDrop}
+              >
+                {isDraggingFile && (
+                  <div className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-lg border-2 border-dashed border-blue-500 bg-blue-50/80 text-sm font-medium text-blue-700">
+                    Drop PGM, map YAML, or waypoints YAML
+                  </div>
+                )}
                 <div
                   className="relative mx-auto max-w-full overflow-hidden rounded-lg bg-slate-200"
                   style={{
@@ -736,3 +772,8 @@ export default function Home() {
 }
 
 const MAX_PIXEL_SIZE = 20;
+
+const isPgm = (file: File) => /\.pgm$/i.test(file.name);
+// Map YAML (map_server format) has resolution and origin; waypoint YAML does not.
+const isMapYaml = (text: string) =>
+  /^\s*resolution\s*:/m.test(text) && /^\s*origin\s*:/m.test(text);

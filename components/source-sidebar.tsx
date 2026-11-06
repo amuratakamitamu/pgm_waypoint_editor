@@ -25,6 +25,7 @@ export type GoogleLocation = {
 
 type SourceSidebarProps = {
   mapName: string;
+  mapYamlName: string;
   waypointsName: string;
   satellite: SatelliteLayer | null;
   googleLocation: GoogleLocation;
@@ -48,6 +49,7 @@ const DARK_OUTLINE_CLASS =
 
 export function SourceSidebar({
   mapName,
+  mapYamlName,
   waypointsName,
   satellite,
   googleLocation,
@@ -79,7 +81,7 @@ export function SourceSidebar({
         <FilePicker
           className="mt-2"
           icon={<FileUp size={18} className="text-slate-400" />}
-          label="Select map YAML"
+          label={mapYamlName || "Select map YAML"}
           accept=".yaml,.yml,text/yaml"
           onChange={onMapYamlChange}
         />
