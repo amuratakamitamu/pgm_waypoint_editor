@@ -34,6 +34,7 @@ type SourceSidebarProps = {
   onPgmChange: ChangeEventHandler<HTMLInputElement>;
   onMapYamlChange: ChangeEventHandler<HTMLInputElement>;
   onWaypointsYamlChange: ChangeEventHandler<HTMLInputElement>;
+  onWaypointsYamlPick?: () => void;
   onSatelliteImageChange: ChangeEventHandler<HTMLInputElement>;
   onFetchSatellite: () => void;
   onGoogleLocationChange: (patch: Partial<GoogleLocation>) => void;
@@ -58,6 +59,7 @@ export function SourceSidebar({
   onPgmChange,
   onMapYamlChange,
   onWaypointsYamlChange,
+  onWaypointsYamlPick,
   onSatelliteImageChange,
   onFetchSatellite,
   onGoogleLocationChange,
@@ -97,6 +99,7 @@ export function SourceSidebar({
           label={waypointsName || "Select waypoints YAML"}
           accept=".yaml,.yml,text/yaml,application/x-yaml"
           onChange={onWaypointsYamlChange}
+          onPick={onWaypointsYamlPick}
         />
       </section>
 
@@ -167,6 +170,8 @@ type FilePickerProps = {
   label: string;
   accept: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
+  /** Replaces the file input when given (e.g. to open with the File System Access API). */
+  onPick?: () => void;
 };
 
 function FilePicker({
@@ -175,9 +180,17 @@ function FilePicker({
   label,
   accept,
   onChange,
+  onPick,
 }: FilePickerProps) {
   return (
     <label
+      onClick={
+        onPick &&
+        ((event) => {
+          event.preventDefault();
+          onPick();
+        })
+      }
       className={`${className} flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 p-3 text-slate-200 hover:border-slate-500 hover:bg-slate-800/60`}
     >
       {icon}

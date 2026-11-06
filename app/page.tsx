@@ -12,6 +12,7 @@ import {
 import {
   Download,
   FileImage,
+  Save,
   Hand,
   MapPin,
   Pencil,
@@ -58,6 +59,10 @@ export default function Home() {
   const [mapYamlName, setMapYamlName] = useState<string>("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [waypointsName, setWaypointsName] = useState<string>("");
+  // Handle of the loaded waypoints YAML, for writing it back (Chromium only).
+  const [waypointsHandle, setWaypointsHandle] =
+    useState<FileSystemFileHandle | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<"" | "saved" | "failed">("");
   const {
     waypoints,
     waypointsRef,
@@ -169,7 +174,10 @@ export default function Home() {
       setMessage("Failed to load the YAML file.");
     }
   };
-  const loadWaypointsYaml = async (file: File) => {
+  const loadWaypointsYaml = async (
+    file: File,
+    handle: FileSystemFileHandle | null = null,
+  ) => {
     try {
       const loaded = parseWaypointsYaml(await file.text());
       if (
@@ -185,6 +193,7 @@ export default function Home() {
         null,
       );
       setWaypointsName(file.name);
+      setWaypointsHandle(handle);
       setMessage(`Loaded ${loaded.length} waypoints from ${file.name}.`);
     } catch (error) {
       setMessage(
@@ -202,18 +211,58 @@ export default function Home() {
       input.value = "";
       if (file) await load(file);
     };
+  const openWaypointsYaml = async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker!({
+        types: [
+          {
+            description: "Waypoints YAML",
+            accept: { "application/x-yaml": [".yaml", ".yml"] },
+          },
+        ],
+      });
+      await loadWaypointsYaml(await handle.getFile(), handle);
+    } catch {
+      // The user closed the picker.
+    }
+  };
+  const updateWaypointsYaml = async () => {
+    if (!waypointsHandle) return;
+    try {
+      const writable = await waypointsHandle.createWritable();
+      await writable.write(serializeWaypointsYaml(waypoints));
+      await writable.close();
+      setUpdateStatus("saved");
+    } catch {
+      setUpdateStatus("failed");
+    }
+    setTimeout(() => setUpdateStatus(""), 2000);
+  };
   const handleFileDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDraggingFile(false);
+    // Handles must be requested synchronously, before the first await.
+    const entries = Array.from(event.dataTransfer.items)
+      .filter((item) => item.kind === "file")
+      .map((item) => ({
+        file: item.getAsFile()!,
+        handle: item.getAsFileSystemHandle?.() ?? Promise.resolve(null),
+      }));
     // PGM first so the map is ready before its YAML and waypoints.
-    const files = Array.from(event.dataTransfer.files).sort(
-      (a, b) => Number(!isPgm(a)) - Number(!isPgm(b)),
-    );
-    for (const file of files) {
+    entries.sort((a, b) => Number(!isPgm(a.file)) - Number(!isPgm(b.file)));
+    for (const { file, handle } of entries) {
       if (isPgm(file)) await loadPgm(file);
       else if (/\.ya?ml$/i.test(file.name)) {
         if (isMapYaml(await file.text())) await loadMapYaml(file);
-        else await loadWaypointsYaml(file);
+        else {
+          const fileHandle = await handle.catch(() => null);
+          await loadWaypointsYaml(
+            file,
+            fileHandle?.kind === "file"
+              ? (fileHandle as FileSystemFileHandle)
+              : null,
+          );
+        }
       } else setMessage(`${file.name} is not a PGM or YAML file.`);
     }
   };
@@ -557,7 +606,12 @@ export default function Home() {
           isAligningSatellite={aligningSatellite}
           onPgmChange={fromInput(loadPgm)}
           onMapYamlChange={fromInput(loadMapYaml)}
-          onWaypointsYamlChange={fromInput(loadWaypointsYaml)}
+          onWaypointsYamlChange={fromInput((file) => loadWaypointsYaml(file))}
+          onWaypointsYamlPick={
+            typeof window !== "undefined" && "showOpenFilePicker" in window
+              ? openWaypointsYaml
+              : undefined
+          }
           onSatelliteImageChange={handleSatellite}
           onFetchSatellite={fetchGoogleSatellite}
           onGoogleLocationChange={(patch) =>
@@ -663,6 +717,23 @@ export default function Home() {
                     disabled={!waypoints.length}
                   >
                     <RotateCcw size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={updateWaypointsYaml}
+                    disabled={!waypointsHandle || !waypoints.length}
+                    title={
+                      waypointsHandle
+                        ? `Overwrite ${waypointsHandle.name}`
+                        : "Open a waypoints YAML from the sidebar or by dropping it to enable"
+                    }
+                  >
+                    <Save size={16} />
+                    {updateStatus === "saved"
+                      ? "Updated"
+                      : updateStatus === "failed"
+                        ? "Update failed"
+                        : "Update YAML"}
                   </Button>
                   <Button onClick={exportYaml} disabled={!waypoints.length}>
                     <Download size={16} /> Download YAML
@@ -775,3 +846,15 @@ const isPgm = (file: File) => /\.pgm$/i.test(file.name);
 // Map YAML (map_server format) has resolution and origin; waypoint YAML does not.
 const isMapYaml = (text: string) =>
   /^\s*resolution\s*:/m.test(text) && /^\s*origin\s*:/m.test(text);
+
+// File System Access API pieces missing from TypeScript's DOM types (Chromium only).
+declare global {
+  interface Window {
+    showOpenFilePicker?: (options?: {
+      types?: { description?: string; accept: Record<string, string[]> }[];
+    }) => Promise<FileSystemFileHandle[]>;
+  }
+  interface DataTransferItem {
+    getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
+  }
+}
