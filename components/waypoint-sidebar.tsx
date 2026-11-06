@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ type WaypointSidebarProps = {
   waypoints: Waypoint[];
   selectedWaypoint: Waypoint | null;
   onDelete: (id: number) => void;
+  onMove: (from: number, to: number) => void;
   onSelect: (id: number) => void;
   onUpdate: (id: number, patch: Partial<Waypoint>) => void;
 };
@@ -21,6 +23,7 @@ export function WaypointSidebar({
   waypoints,
   selectedWaypoint,
   onDelete,
+  onMove,
   onSelect,
   onUpdate,
 }: WaypointSidebarProps) {
@@ -35,6 +38,7 @@ export function WaypointSidebar({
         waypoints={waypoints}
         selectedWaypointId={selectedWaypoint?.id ?? null}
         onDelete={onDelete}
+        onMove={onMove}
         onSelect={onSelect}
       />
     </aside>
@@ -152,6 +156,7 @@ type WaypointTableProps = {
   waypoints: Waypoint[];
   selectedWaypointId: number | null;
   onDelete: (id: number) => void;
+  onMove: (from: number, to: number) => void;
   onSelect: (id: number) => void;
 };
 
@@ -159,8 +164,16 @@ function WaypointTable({
   waypoints,
   selectedWaypointId,
   onDelete,
+  onMove,
   onSelect,
 }: WaypointTableProps) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  const endDrag = () => {
+    setDragIndex(null);
+    setOverIndex(null);
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -187,11 +200,37 @@ function WaypointTable({
               </tr>
             </thead>
             <tbody>
-              {waypoints.map((waypoint) => (
+              {waypoints.map((waypoint, index) => (
                 <tr
                   key={waypoint.id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(index));
+                    setDragIndex(index);
+                  }}
+                  onDragOver={(event) => {
+                    if (dragIndex === null) return;
+                    event.preventDefault();
+                    setOverIndex(index);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (dragIndex !== null && dragIndex !== index)
+                      onMove(dragIndex, index);
+                    endDrag();
+                  }}
+                  onDragEnd={endDrag}
                   onClick={() => onSelect(waypoint.id)}
-                  className={`cursor-pointer border-t border-slate-100 ${
+                  className={`cursor-grab border-t border-slate-100 ${
+                    dragIndex === index ? "opacity-40" : ""
+                  } ${
+                    overIndex === index && dragIndex !== null && dragIndex !== index
+                      ? dragIndex < index
+                        ? "shadow-[inset_0_-2px_0_#2563eb]"
+                        : "shadow-[inset_0_2px_0_#2563eb]"
+                      : ""
+                  } ${
                     selectedWaypointId === waypoint.id
                       ? "bg-orange-50"
                       : "hover:bg-slate-50"

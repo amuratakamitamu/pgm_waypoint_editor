@@ -344,6 +344,14 @@ export default function Home() {
       selectedRef.current === id ? null : selectedRef.current,
     );
   };
+  const moveWaypoint = (from: number, to: number) => {
+    const points = [...waypointsRef.current];
+    points.splice(to, 0, ...points.splice(from, 1));
+    commitWaypoints(
+      renumberWaypointNames(points, waypointNameBase(points)),
+      selectedRef.current,
+    );
+  };
   const waypointAt = (px: number, py: number, canvas: HTMLCanvasElement) => {
     const hitRadius = WAYPOINT_HIT_RADIUS * canvasPixelRatio(canvas);
     return (
@@ -758,6 +766,7 @@ export default function Home() {
             waypoints={waypoints}
             selectedWaypoint={selectedWaypoint}
             onDelete={deleteWaypoint}
+            onMove={moveWaypoint}
             onUpdate={updateWaypoint}
             onSelect={(id) => {
               setSelected(id);
