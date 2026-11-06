@@ -28,7 +28,11 @@ import { SourceSidebar } from "@/components/source-sidebar";
 import { WaypointSidebar } from "@/components/waypoint-sidebar";
 import { useWaypointHistory } from "@/hooks/use-waypoint-history";
 import type { WaypointSnapshot } from "@/hooks/use-waypoint-history";
-import { renderMap } from "@/lib/map-renderer";
+import {
+  WAYPOINT_HIT_RADIUS,
+  canvasPixelRatio,
+  renderMap,
+} from "@/lib/map-renderer";
 import { parsePgm } from "@/lib/pgm";
 import {
   DEFAULT_MAP,
@@ -341,7 +345,7 @@ export default function Home() {
     );
   };
   const waypointAt = (px: number, py: number, canvas: HTMLCanvasElement) => {
-    const hitRadius = Math.max(10, canvas.width / 70) * viewport.zoom;
+    const hitRadius = WAYPOINT_HIT_RADIUS * canvasPixelRatio(canvas);
     return (
       [...waypoints].reverse().find((point) => {
         const mapPosition = worldToMapPixel(point, mapInfo, canvas.height);
@@ -484,7 +488,9 @@ export default function Home() {
         ? target.height / 2
         : ((clientY - bounds.top) * target.height) / bounds.height;
     setViewport((current) => {
-      const zoom = Math.min(6, Math.max(0.25, current.zoom * factor));
+      // Allow zooming until one map pixel is MAX_PIXEL_SIZE screen pixels, however large the map is.
+      const maxZoom = Math.max(6, MAX_PIXEL_SIZE * canvasPixelRatio(target));
+      const zoom = Math.min(maxZoom, Math.max(0.25, current.zoom * factor));
       const scale = zoom / current.zoom;
       return {
         zoom,
@@ -764,6 +770,8 @@ export default function Home() {
     </main>
   );
 }
+
+const MAX_PIXEL_SIZE = 20;
 
 const isPgm = (file: File) => /\.pgm$/i.test(file.name);
 // Map YAML (map_server format) has resolution and origin; waypoint YAML does not.
