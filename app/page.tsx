@@ -590,7 +590,7 @@ export default function Home() {
             )}
           </p>
         </header>
-        <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-[minmax(0,1fr)_340px] gap-5 overflow-hidden px-6 py-4">
+        <div className="grid min-h-0 w-full flex-1 grid-cols-[minmax(0,1fr)_420px] gap-5 overflow-hidden px-6 py-4">
           <section className="min-w-0 min-h-0">
             <Card className="overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">

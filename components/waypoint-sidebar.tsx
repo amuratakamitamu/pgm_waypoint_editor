@@ -192,11 +192,11 @@ function WaypointTable({
           <table className="w-full table-fixed text-left text-sm">
             <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="w-[34%] px-4 py-2 font-medium">Name</th>
-                <th className="w-[20%] px-2 py-2 font-medium">X</th>
-                <th className="w-[20%] px-2 py-2 font-medium">Y</th>
-                <th className="w-[14%] px-2 py-2 font-medium">Angle</th>
-                <th className="w-9" />
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="w-20 px-2 py-2 font-medium">X</th>
+                <th className="w-20 px-2 py-2 font-medium">Y</th>
+                <th className="w-16 px-2 py-2 font-medium">Angle</th>
+                <th className="w-10" />
               </tr>
             </thead>
             <tbody>
