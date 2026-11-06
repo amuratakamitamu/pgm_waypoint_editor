@@ -86,7 +86,11 @@ function drawWaypoint(
 ): void {
   const position = worldToMapPixel(waypoint, mapInfo, canvasHeight);
   const angle = -(waypoint.yaw - mapInfo.originYaw);
-  const color = isSelected ? "#f97316" : "#2563eb";
+  const color = isSelected
+    ? "#f97316"
+    : waypoint.stop
+      ? "#dc2626"
+      : "#2563eb";
 
   context.strokeStyle = color;
   context.fillStyle = color;
@@ -110,8 +114,8 @@ function drawWaypoint(
   context.stroke();
 
   context.fillStyle = "white";
-  context.font = `bold ${Math.max(10, canvasWidth / 55)}px Arial`;
+  context.font = `bold ${Math.max(10, canvasWidth / 55)}px ${getComputedStyle(document.body).fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(String(index + 1), position.x, position.y + 1);
+  context.fillText(String(index), position.x, position.y + 1);
 }

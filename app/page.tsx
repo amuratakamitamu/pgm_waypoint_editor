@@ -21,7 +21,6 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SourceSidebar } from "@/components/source-sidebar";
@@ -500,22 +499,22 @@ export default function Home() {
     ? mapCanvas.width / mapCanvas.height
     : 16 / 10;
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-slate-50">
-      <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-white">
-              <MapPin size={19} />
+    <main className="flex h-screen overflow-hidden bg-slate-50">
+      <aside className="flex w-[280px] shrink-0 flex-col bg-slate-900 text-slate-200">
+        <div className="px-5 pb-4 pt-6">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-white">
+              <MapPin size={17} />
             </div>
-            <div>
-              <h1 className="text-base font-semibold">PGM Waypoint Editor</h1>
-              <p className="text-xs text-slate-500">Made by Keita Sekiguchi</p>
-            </div>
+            <span className="text-[15px] font-bold text-white">
+              PGM Waypoint Editor
+            </span>
           </div>
-          <Badge>{waypoints.length} waypoints</Badge>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            {waypoints.length} waypoints
+          </span>
         </div>
-      </header>
-      <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-[260px_minmax(0,1fr)_340px] gap-5 overflow-hidden px-5 py-5">
         <SourceSidebar
           mapName={mapName}
           waypointsName={waypointsName}
@@ -538,171 +537,193 @@ export default function Home() {
             setAligningSatellite(false);
           }}
         />
-        <section className="min-w-0 min-h-0">
-          <Card className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-              <div className="flex flex-wrap gap-2">
-                <div className="flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
-                  <Button
-                    variant={editorMode === "add" ? "default" : "ghost"}
-                    className="h-8 px-3"
-                    onClick={() => {
-                      setEditorMode("add");
-                      setAligningSatellite(false);
-                    }}
-                  >
-                    <Plus size={15} />
-                    Add
-                  </Button>
-                  <Button
-                    variant={editorMode === "edit" ? "default" : "ghost"}
-                    className="h-8 px-3"
-                    onClick={() => {
-                      setEditorMode("edit");
-                      setAligningSatellite(false);
-                    }}
-                  >
-                    <Pencil size={14} />
-                    Edit
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Undo (Ctrl+Z)"
-                  aria-label="Undo"
-                  onClick={undo}
-                  disabled={!canUndo}
-                >
-                  <Undo2 size={16} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Redo (Ctrl+Shift+Z / Ctrl+Y)"
-                  aria-label="Redo"
-                  onClick={redo}
-                  disabled={!canRedo}
-                >
-                  <Redo2 size={16} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Zoom out"
-                  onClick={() => zoomAt(1 / 1.25)}
-                  disabled={!mapCanvas}
-                >
-                  <ZoomOut size={16} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Zoom in"
-                  onClick={() => zoomAt(1.25)}
-                  disabled={!mapCanvas}
-                >
-                  <ZoomIn size={16} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Reset view"
-                  onClick={() =>
-                    setViewport({ zoom: 1, offsetX: 0, offsetY: 0 })
-                  }
-                  disabled={!mapCanvas}
-                >
-                  <Hand size={16} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Delete all waypoints"
-                  onClick={() => commitWaypoints([], null)}
-                  disabled={!waypoints.length}
-                >
-                  <RotateCcw size={16} />
-                </Button>
-                <Button onClick={exportYaml} disabled={!waypoints.length}>
-                  <Download size={16} /> Download YAML
-                </Button>
-              </div>
-            </div>
-            <div className="bg-slate-100 p-4">
-              <div
-                className="relative mx-auto max-w-full overflow-hidden rounded-lg bg-slate-200"
-                style={{
-                  aspectRatio: previewAspectRatio,
-                  width: mapCanvas
-                    ? `min(100%, 960px, ${65 * previewAspectRatio}vh)`
-                    : "100%",
-                }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  width={mapCanvas?.width ?? 960}
-                  height={mapCanvas?.height ?? 600}
-                  onPointerDown={startPoint}
-                  onPointerMove={turnPoint}
-                  onPointerUp={finishPointer}
-                  onPointerCancel={finishPointer}
-                  onContextMenu={(event) => event.preventDefault()}
-                  onWheel={handleWheel}
-                  className={`absolute inset-0 h-full w-full ${panningRef.current || satelliteDragRef.current || waypointDragRef.current !== null ? "cursor-grabbing" : aligningSatellite || editorMode === "edit" ? "cursor-move" : "cursor-crosshair"}`}
-                />
-                {!mapCanvas && (
-                  <div className="absolute inset-0 grid place-items-center text-center">
-                    <div>
-                      <FileImage
-                        className="mx-auto mb-3 text-slate-400"
-                        size={30}
-                      />
-                      <p className="text-sm font-medium text-slate-600">
-                        Upload a PGM map
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        P2 and P5 formats are supported
-                      </p>
-                    </div>
+        <p className="border-t border-slate-800 px-5 py-4 text-[11px] text-slate-500">
+          Made by Keita Sekiguchi
+        </p>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 px-6 pb-2 pt-6">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            Waypoint Editor
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {mapName ? (
+              <>
+                Editing{" "}
+                <span className="font-semibold text-slate-700">{mapName}</span>
+              </>
+            ) : (
+              "Load a PGM map to get started."
+            )}
+          </p>
+        </header>
+        <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-[minmax(0,1fr)_340px] gap-5 overflow-hidden px-6 py-4">
+          <section className="min-w-0 min-h-0">
+            <Card className="overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex rounded-lg bg-slate-100 p-1">
+                    <Button
+                      variant="ghost"
+                      className={`h-8 px-3 ${editorMode === "add" ? "bg-white text-slate-900 shadow-sm hover:bg-white" : ""}`}
+                      onClick={() => {
+                        setEditorMode("add");
+                        setAligningSatellite(false);
+                      }}
+                    >
+                      <Plus size={15} />
+                      Add
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className={`h-8 px-3 ${editorMode === "edit" ? "bg-white text-slate-900 shadow-sm hover:bg-white" : ""}`}
+                      onClick={() => {
+                        setEditorMode("edit");
+                        setAligningSatellite(false);
+                      }}
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </Button>
                   </div>
-                )}
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Undo (Ctrl+Z)"
+                    aria-label="Undo"
+                    onClick={undo}
+                    disabled={!canUndo}
+                  >
+                    <Undo2 size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Redo (Ctrl+Shift+Z / Ctrl+Y)"
+                    aria-label="Redo"
+                    onClick={redo}
+                    disabled={!canRedo}
+                  >
+                    <Redo2 size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Zoom out"
+                    onClick={() => zoomAt(1 / 1.25)}
+                    disabled={!mapCanvas}
+                  >
+                    <ZoomOut size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Zoom in"
+                    onClick={() => zoomAt(1.25)}
+                    disabled={!mapCanvas}
+                  >
+                    <ZoomIn size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Reset view"
+                    onClick={() =>
+                      setViewport({ zoom: 1, offsetX: 0, offsetY: 0 })
+                    }
+                    disabled={!mapCanvas}
+                  >
+                    <Hand size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Delete all waypoints"
+                    onClick={() => commitWaypoints([], null)}
+                    disabled={!waypoints.length}
+                  >
+                    <RotateCcw size={16} />
+                  </Button>
+                  <Button onClick={exportYaml} disabled={!waypoints.length}>
+                    <Download size={16} /> Download YAML
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="border-t border-slate-100 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
-                <h2 className="font-semibold">Map parameters</h2>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500">Resolution</span>
-                  <span>{mapInfo.resolution} m/px</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500">Origin</span>
-                  <span>
-                    {mapInfo.originX}, {mapInfo.originY}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500">Yaw</span>
-                  <span>{radiansToDegrees(mapInfo.originYaw)}°</span>
+              <div className="bg-slate-100 p-4">
+                <div
+                  className="relative mx-auto max-w-full overflow-hidden rounded-lg bg-slate-200"
+                  style={{
+                    aspectRatio: previewAspectRatio,
+                    width: mapCanvas
+                      ? `min(100%, 960px, ${65 * previewAspectRatio}vh)`
+                      : "100%",
+                  }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    width={mapCanvas?.width ?? 960}
+                    height={mapCanvas?.height ?? 600}
+                    onPointerDown={startPoint}
+                    onPointerMove={turnPoint}
+                    onPointerUp={finishPointer}
+                    onPointerCancel={finishPointer}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onWheel={handleWheel}
+                    className={`absolute inset-0 h-full w-full ${panningRef.current || satelliteDragRef.current || waypointDragRef.current !== null ? "cursor-grabbing" : aligningSatellite || editorMode === "edit" ? "cursor-move" : "cursor-crosshair"}`}
+                  />
+                  {!mapCanvas && (
+                    <div className="absolute inset-0 grid place-items-center text-center">
+                      <div>
+                        <FileImage
+                          className="mx-auto mb-3 text-slate-400"
+                          size={30}
+                        />
+                        <p className="text-sm font-medium text-slate-600">
+                          Upload a PGM map
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          P2 and P5 formats are supported
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          </Card>
-        </section>
-        <WaypointSidebar
-          waypoints={waypoints}
-          selectedWaypoint={selectedWaypoint}
-          onDelete={deleteWaypoint}
-          onUpdate={updateWaypoint}
-          onSelect={(id) => {
-            setSelected(id);
-            setEditorMode("edit");
-            setAligningSatellite(false);
-          }}
-        />
+              <div className="border-t border-slate-100 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+                  <h2 className="font-semibold">Map parameters</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">Resolution</span>
+                    <span>{mapInfo.resolution} m/px</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">Origin</span>
+                    <span>
+                      {mapInfo.originX}, {mapInfo.originY}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">Yaw</span>
+                    <span>{radiansToDegrees(mapInfo.originYaw)}°</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </section>
+          <WaypointSidebar
+            waypoints={waypoints}
+            selectedWaypoint={selectedWaypoint}
+            onDelete={deleteWaypoint}
+            onUpdate={updateWaypoint}
+            onSelect={(id) => {
+              setSelected(id);
+              setEditorMode("edit");
+              setAligningSatellite(false);
+            }}
+          />
+        </div>
       </div>
     </main>
   );
